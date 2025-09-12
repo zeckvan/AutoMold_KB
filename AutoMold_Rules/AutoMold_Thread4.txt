@@ -1,0 +1,367 @@
+# 📑 AutoMold_Thread4 自動排模排產邏輯四（細部規則）
+
+## 1. AutoMold_ArticleMold【型體模具 size 欠數】資料取得方式
+- **來源表**：`AutoMold_ArticleMold`  
+- **篩選條件**：  
+  - `SumBodySizeNeed > 0` （型體 Size 欠數大於 0）  
+  - `建議上模塊數 − 實際排班上模數 > 0`  
+- **排序**：依 `SortMold` 由小到大  
+
+---
+
+## 2. AutoMold_ArticleMold【型體模具 Size 欠數】資料處理方式
+- **若無資料**：  
+  1. 確認 `AutoMold_ProductionScheduleDay`（生產排班日資訊）是否仍有未處理資料。  
+  2. 若有 → 取得下一筆生產排班日資訊，重複執行「排模排產五項邏輯」。  
+  3. 若無 → 結束排模排產邏輯。  
+
+- **若有資料**：  
+  - 逐筆處理以下邏輯：  
+    1. 檢查 **AutoMold_WorkMold【工單需求上模數】**  
+    2. 進入後續排模排產流程。  
+
+---
+
+## 3. AutoMold_WorkMold【工單需求上模數】資料取得方式
+- **來源資料表**：`AutoMold_WorkMold`  
+- **條件**：
+  - `AutoMold_WorkMold.未排模排產數 > 0`  
+  - `AutoMold_WorkMold.工單排序 in (AutoMold_ArticleMold.工單序集合)`  
+- **排序**：`工單排序` 由小到大  
+- **限制**：已處理筆數 ≤ `AutoMold_ArticleMold.建議上模塊數`  
+
+---
+
+## 4. 排模邏輯主流程
+
+### 4.1 找尋 AutoMold_WorkMold【工單需求上模數】資訊結果
+- **若找到** → 進行 **AutoMold_Temp 共號情境檢查**  
+- **若未找到** → 結束該筆資料處理  
+
+---
+
+### 4.2 檢查 AutoMold_Temp【已排模排產】是否有符合共號情境
+- **來源資料**：`BMoldS`, `AutoMold_Temp`  
+- **條件**：
+  - `BMoldS.ZZGENDER = AutoMold_WorkMold.ZZGENDER`  
+  - `BMoldS.COMPONENT = AutoMold_WorkMold.ZZPARTNO`  
+  - `BMoldS.ProductSize = AutoMold_WorkMold.ProductSize`  
+  - `BMoldS.MoldNo = AutoMold_WorkMold.MoldNo`  
+  - `BMoldS.UniversalState <> 4`  
+  - `AutoMold_Temp.ProductId = BMoldS.ProductId`  
+  - `AutoMold_Temp.班別 = AutoMold_ProductionScheduleDay.shift_name`  
+  - `AutoMold_Temp.排班日 = AutoMold_ProductionScheduleDay.shift_date`  
+  - `排除已經用過的模穴：如果 AutoMold_Temp 裡面已經存在相同的 ProductId + MoldPcsSeq + shift_date + shift_name → 就不能再用。`
+- **排序邏輯**：  
+  - `select top 1 → 只取出第一筆符合條件的模穴。`
+- **SQL**：
+  ```sql
+  select top 1
+    a.ProductId,
+    a.MoldPcsSeq
+  from BMoldS a
+  join AutoMold_Temp d on 
+            d.ProductId = b.ProductId and 
+            d.shift_date = AutoMold_ProductionScheduleDay.shift_date and 
+            d.shift_name = AutoMold_ProductionScheduleDay.shift_name
+  where a.ProductSize = AutoMold_WorkMold.ProductSize
+  and a.COMPONENT= AutoMold_WorkMold.ZZPARTNO
+  and a.MoldNo = AutoMold_WorkMold.MoldNo
+  and a.ZZGENDER = AutoMold_WorkMold.ZZGENDER
+  and not exists(
+      select 1
+      from AutoMold_Temp b
+      where b.ProductId = a.ProductId
+      and b.MoldPcsSeq = a.MoldPcsSeq	
+      and b.shift_date = d.shift_date
+      and b.shift_name = d.shift_name									
+    )
+  ```
+- **定義**：在某一天、某個班別裡，找出符合尺寸、零件、模具編號、性別的模具資訊，並從未使用過的模穴中挑第一個可用的模穴，拿來做排產。
+
+#### 處理邏輯
+- **若找到**：  
+  - 進入 **6. 寫入排模排產邏輯**  
+
+- **若未找到**：  
+  - 進入 **共模情境檢查**  
+
+---
+
+### 4.3 找尋 AutoMold_Temp【已排模排產】是否有符合共模情境
+- **來源資料**：`BMoldS`, `AutoMold_Temp`  
+- **條件**：
+  - `BMoldS.ZZGENDER = AutoMold_WorkMold.ZZGENDER`  
+  - `BMoldS.COMPONENT = AutoMold_WorkMold.ZZPARTNO`  
+  - `BMoldS.ProductSize = AutoMold_WorkMold.ProductSize`  
+  - `BMoldS.MoldNo = AutoMold_WorkMold.MoldNo`  
+  - `BMoldS.UniversalState <> 4`  
+  - `AutoMold_Temp.ProductId = BMoldS.ProductId`  
+  - `AutoMold_Temp.MoldPcsSeq = BMoldS.MoldPcsSeq`  
+  - `AutoMold_Temp.shift_name = AutoMold_ProductionScheduleDay.shift_name`  
+  - `AutoMold_Temp.shift_date = AutoMold_ProductionScheduleDay.shift_date`  
+  - `isnull(BmoldS.CoMoldMk,'') <> 'Y'`  
+  - `exists(select 1 from moldS a where a.ProductId = moldS.ProductId and a.MoldPcsSeq = moldS.MoldPcsSeq and isnull(a.CoMoldMk,'') = 'Y' and a.UniversalState <> 4)`  
+- **SQL**：
+  ```sql
+  select distinct 
+    @resource = b.ResourceId ,
+    @productid = a.ProductId,
+    a.MoldPcsSeq,
+    a.MoldPcsQty		
+  from BMoldS a
+  join AutoMold_Temp  b on 
+              a.ProductId = b.ProductId 
+              and a.MoldPcsSeq = b.MoldPcsSeq
+              and b.shift_date = AutoMold_ProductionScheduleDay.shift_date
+              and b.shift_name = AutoMold_ProductionScheduleDay.shift_name								
+  where a.ProductSize = AutoMold_WorkMold.ProductSize
+  and a.COMPONENT= AutoMold_WorkMold.ZZPARTNO
+  and a.MoldNo = AutoMold_WorkMold.MoldNo
+  and a.ZZGENDER = AutoMold_WorkMold.ZZGENDER
+  and isnull(a.CoMoldMk,'') <> 'Y' 
+  and exists(
+        select 1 
+        from BMoldS c
+        where c.ProductId = a.ProductId
+        and c.MoldPcsSeq = a.MoldPcsSeq
+        and isnull(c.CoMoldMk,'') = 'Y' 
+      )
+  ```
+#### 處理邏輯
+1. 確認 `AutoMold_Temp.ResourceId` 是否仍有剩餘戰力：
+      - 定義：`在指定的日期與班別裡，檢查某一台機台，如果它的「最小剩餘戰力」還大於 0，就表示這台機台還能繼續排產。`
+      - SQL：
+        ```sql
+        SELECT 
+            @resourceid = AutoMold_Temp.ResourceId,
+            @shift_work_hour  = MIN(AutoMold_Temp.MoldworkN)          -- 該機台最小的剩餘戰力
+        FROM AutoMold_Temp
+        WHERE shift_date = AutoMold_ProductionScheduleDay.shift_date               -- 指定日期
+          AND shift_name   = AutoMold_ProductionScheduleDay.shift_name             -- 指定班別
+          AND ResourceId = @resource
+        GROUP BY ResourceId
+        HAVING MIN(MoldworkN) > 0                 -- 機台必須還有可用產能 (>0)        
+        ```
+2. 若 `@shift_work_hour > 0` → 需檢查是否為最後一筆上模序  
+   - SQL1（同模具最大上模序） :
+     ```sql
+      select @compare1 = max(上模序)
+      from AutoMold_Temp
+      where 
+      AutoMold_Temp.ResourceId  = @resourceid and 
+      AutoMold_Temp.ProductId = @productid and 
+      AutoMold_Temp.Shift_Name = AutoMold_ProductionScheduleDay.shift_name and 
+      AutoMold_Temp.shift_date  =AutoMold_ProductionScheduleDay.shift_date
+     ```          
+   - SQL2（不同模具最大上模序）:  
+     ```sql
+      select @compare2 = max(上模序)
+      from AutoMold_Temp
+      where 
+      AutoMold_Temp.ResourceId  = @resourceid and 
+      AutoMold_Temp.ProductId <> @productid and 
+      AutoMold_Temp.Shift_Name = AutoMold_ProductionScheduleDay.shift_name and 
+      AutoMold_Temp.shift_date  =AutoMold_ProductionScheduleDay.shift_date
+     ```    
+   - 其它條件:`如果@compare2為空，預設帶 0`
+   - 判斷 `@compare1 > @compare2` → 才能接續排入共模機台  
+
+3. 若符合條件：  
+    - 進入 **6. 寫入排模排產邏輯**  
+
+4. 若未找到 → 進入 **前班孔位機台檢查**  
+
+---
+
+### 4.4 找尋 AutoMold_Produce【前班孔位機台】
+- **來源資料**：`AutoMold_Produce`  
+- **條件**：
+  - `MoldNo = AutoMold_ArticleMold.MoldNo`  
+  - 排除已存在於 `AutoMold_Temp` 的 ResourceId  
+  - `實際工時 − 維保時數 − 換模時數 > 0`  
+
+- **SQL**：
+  ```sql
+  SELECT TOP 1 
+  @resource = x_rescourse,
+  @thread4_seq = x_seq
+  FROM (
+    select 
+    x_rescourse = a.ResourceId  ,
+    x_seq= 1
+    from AutoMold_Produce a
+    where a.MoldNo =  AutoMold_ArticleMold.MoldNo and
+          a.Shift_Name = AutoMold_ProductionScheduleDay.shift_name and 
+          a.shift_date = AutoMold_ProductionScheduleDay.shift_dat
+      not exists(select 1
+      from AutoMold_temp b
+      where b.ResourceId = a.ResourceId and
+      b.Shift_Name = AutoMold_ProductionScheduleDay.shift_name and 
+      b.shift_date = AutoMold_ProductionScheduleDay.shift_date)
+  ) AS CombinedResults
+  ORDER BY x_seq,x_rescourse
+  ```
+
+- **處理邏輯**：
+
+    - 進入 **6. 寫入排模排產邏輯**  
+
+- **若未找到 → 進入 已排模剩餘戰力檢查**
+
+---
+
+### 4.5 找尋 AutoMold_Temp【已排模排產】剩餘戰力機台
+
+- **來源資料**：AutoMold_Temp
+
+- **欄位**：
+
+  - @resourceid = AutoMold_Temp.ResourceId
+  - @shift_work_hour = min(AutoMold_Temp.MoldworkN)
+
+- **條件**：
+    - AutoMold_Temp.Shift_Date = AutoMold_ProductionScheduleDay.Shift_Date
+    - AutoMold_Temp.Shift_Name = AutoMold_ProductionScheduleDay.Shift_Name    
+    - group by AutoMold_Temp.ResourceId
+    - having min(AutoMold_Temp.MoldworkN) - @mold_change > 0
+    - order by  min(MoldworkN)  - @mold_change 
+
+- **SQL**：
+    ```sql
+    WITH R AS (
+        SELECT
+            t.ResourceId,
+            MIN(t.MoldworkN) AS MinWorkN,
+            MIN(t.MoldworkN) - @mold_change AS EffectiveWorkHour
+        FROM AutoMold_Temp t
+        WHERE t.Shift_Date = AutoMold_ProductionScheduleDay.Shift_Date
+        AND t.Shift_Name = AutoMold_ProductionScheduleDay.Shift_Name
+        GROUP BY t.ResourceId
+        HAVING MIN(t.MoldworkN) - @mold_change > 0
+    )
+    SELECT TOP (1)
+        @resourceid       = R.ResourceId,
+        @shift_work_hour  = R.MinWorkN
+    FROM R
+    ORDER BY
+        R.EffectiveWorkHour ASC,
+        R.ResourceId ASC;
+        ;
+    ```
+
+- **定義**：「在同一天、同一班別裡，挑出一台機台，在考慮 換模耗時 (@mold_change) 之後，還有產能可用，並且是 最合適 的機台。」
+
+- **處理邏輯**：
+
+  - 若找到 → 進入 **6. 寫入排模排產邏輯**  
+
+  - 若未找到 → 進入 **找尋同產品 Resource 是否有可用機台**
+
+  ---
+
+
+### 4.6 找尋同產品 Resource 是否有可用機台
+
+- 來源資料：CoreDataModel.T_Resource, T_Area, T_Facility, T_ResourceService, T_Service, T_Step
+
+- SQL 條件：
+
+```sql
+select 
+	@resource = a.name
+from CoreDataModel.T_Resource a
+join CoreDataModel.T_Area b on 
+				a.[Type] = b.ProductType and 
+				a.DataGroupId = b.DataGroupId and 
+				b.ProductType =  @BAutoMoldFilter.ProductTand
+				b.Type = 'Resource' and
+				b.AreaId = @BautoMoldFilter.Product.AreaId
+join CoreDataModel.T_Facility c on
+					c.FacilityId = b.FacilityId and 
+					c.FacilityId =  @BautoMoldQueue.FacilityId	
+join CoreDataModel.T_ResourceService f on 
+					f.SourceEntityId = a.ResourceId 															
+join CoreDataModel.T_Service d on
+					d.ServiceId = f.TargetEntityId 
+join CoreDataModel.T_Step e on e.StepId = @BautoMoldFilter.StepId and
+				     e.name = d.name
+where not exists(
+			select 1 
+			from AutoMold_Temp d 
+			where  d.機台孔位代碼 = a.name
+			and d.排班日 = @shift_date
+			and d.班別 = @shift_name)
+and a.universalstate <> 4
+order by a.ResourceGroup,a.name		
+```
+
+- 處理邏輯：
+
+  - 若找到 → 進入 **6. 寫入排模排產邏輯**  
+
+  - 若未找到 → 返回 `AutoMold_ArticleMold`，處理下一筆 size 欠數
+
+  ---
+
+## 5. 機台餘力分派（相同條件工單）
+-   **來源表**：`AutoMold_WorkMold`
+
+-   **條件**：
+
+    -   `AufnrSeq ∈ AutoMold_ArticleMold.SortOrderList`
+    -   `UnmoldedQuantity > 0`
+
+-   **排序**：依 `AufnrSeq` 由小到大
+
+-   **SQL 參考**：
+
+    ``` sql
+    SELECT *
+    FROM AutoMold_WorkMold 
+    WHERE AufnrSeq IN AutoMold_ArticleMold.SortOrderList 
+      AND UnmoldedQuantity > 0 
+    ORDER BY AufnrSeq ASC;
+    ```
+
+-   **處理邏輯**：
+
+    -   逐筆寫入 `AutoMold_Temp`
+    -   更新 `AutoMold_ArticleMold`（同上規則）
+    -   更新 `AutoMold_WorkMold`（同上規則）
+    -   持續分派直到
+        `AutoMold_Temp.WorkQty - AutoMold_Temp.ShiftWorkQty = 0`（戰力耗盡）
+
+  ---
+
+## 6. 寫入排模排產邏輯
+  - 新增資料至 `AutoMold_Temp`  
+  - 更新 `AutoMold_ArticleMold`：
+    - 欄位： 
+        -   `SumBodySizeNeed -= AutoMold_Temp.ShiftWorkQty`
+        -   `ActualRequiredUpperMoldQuantity += 1`
+    - 條件：
+        -   `SortMold = AutoMold_ArticleMold.SortMold`     
+  - 更新 `AutoMold_WorkMold`：
+    - 欄位：   
+        -   `MoldedQuantity += AutoMold_Temp.ShiftWorkQty`
+        -   `UnmoldedQuantity = GAMNG − MoldedQuantity`
+    - 條件：
+        -   AufnrSeq = 
+        ``` sql
+        SELECT TOP 1 AutoMold_WorkMold.AufnrSeq
+        FROM AutoMold_WorkMold 
+        WHERE AufnrSeq IN AutoMold_ArticleMold.SortOrderList 
+          AND UnmoldedQuantity > 0 
+        ORDER BY AufnrSeq ASC;
+        ```              
+  - 若 AutoMold_Temp.WorkQty - AutoMold_Temp.ShiftWorkQty > 0 進入 **5. 機台餘力分派（相同條件工單）**  
+
+  ---
+
+## 7. 結束條件
+-   當 **型體 Size 欠數** 已完全處理，或
+    **所有機台無戰力可再分派**，則：
+    -   若有下一筆 `AutoMold_ArticleMold` → 返回 **步驟 1**
+    -   若無 → 返回 **步驟 2** 判斷是否換下一筆生產排班日
+    -   若也無 → **結束整體邏輯**

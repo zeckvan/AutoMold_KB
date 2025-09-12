@@ -1,0 +1,104 @@
+# 📑 AutoMold_ProductionScheduleDay — 生產排班日資訊表
+
+## 定義說明
+指製鞋廠在特定日期與班別下，針對生產資源（機台、模具、人員）所規劃的基礎營運排程資料。  
+它是每日排模與排產邏輯的核心輸入，用來界定「當日能生產什麼、如何分配產能、模具如何掛載、班次如何安排」。
+
+---
+
+## 主要涵蓋範疇:
+
+1.時間面向
+- 生產日期(ShiftDate)
+
+- 班別(ShiftName,例如:早班、中班、晚班)
+
+- 班別起訖時間
+
+2.資源面向
+
+- 機台(ResourceId)及可用孔位數
+
+- 模具(ArticleMoldId、MoldSize)可否掛載
+
+- 作業人員出勤與工時(ShiftWork)
+
+3.產能面向
+
+- 當日可用工時(扣除維護、保養、換模時間)
+
+- 理論產能(依模穴數、MoldPcsQty 計算)
+
+- 實際可分配產能(ShiftMoldQty)
+
+4.限制條件
+
+- 維護時數(MaintainHour)
+
+- 換模需求(MoldChange):當本次排產需切換至新的 ResourceId(機台/設備) 時,需額外考慮 換模工時 0.5 小時,此時間將計入該班次的排產負荷。
+
+- 特殊產線限制
+
+---
+
+## 欄位定義（時間面）
+| 欄位名稱        | 型別           | 說明             |
+| --------------- | -------------- | ---------------- |
+| ShiftDate       | NVARCHAR(10)   | 生產日期          |
+| ShiftName       | NVARCHAR(10)   | 班別名稱          |
+| ShiftStartTime  | TIME           | 班別開始時間      |
+| ShiftEndTime    | TIME           | 班別結束時間      |
+| TotalWorkingHours | decimal(18,8)| 實際可用工時      |
+
+---
+
+## 欄位定義（資源面）
+| 欄位名稱        | 型別           | 說明             |
+| --------------- | -------------- | ---------------- |
+| ResourceId      | VARCHAR(20)    | 機台編號          |
+| ResourceName    | VARCHAR(50)    | 機台名稱          |
+| ResourceGroup   | nvarchar(256)  | 機台群組          |
+
+---
+
+## 🔍 Sample 預覽（僅格式/分佈參考，非正式來源）
+取自 `AutoMold_ProductionScheduleDay.sample1.csv`（時間面）前 3 筆：
+
+| ShiftDate | ShiftName        | ShiftStartTime | ShiftEndTime | TotalWorkingHours |
+|-----------|------------------|----------------|--------------|-------------------|
+| 20250602  | 6330_VNbc_1stShift | 06:00:00       | 14:00:00     | 8.0               |
+| 20250602  | 6330_VNbc_2ndShift | 14:00:00       | 22:00:00     | 8.0               |
+| 20250602  | 6330_VNbc_3rdShift | 22:00:00       | 06:00:00     | 8.0               |
+> 更多樣本（如需要）：`AutoMold_Sample_Data/AutoMold_ProductionScheduleDay.sample1.csv`
+
+取自 `AutoMold_ProductionScheduleDay.sample2.csv`（資源面）前 3 筆：
+
+| ResourceId        | ResourceName                 | ResourceGroup |
+|-------------------|-----------------------------|---------------|
+| 2112290000000000001 | VYso_VNdn.IP.IPM.L11.C1.07.L | IP.IPM.L11    |
+| 2112290000000000002 | VYso_VNdn.IP.IPM.L11.C2.07.R | IP.IPM.L11    |
+| 2112290000000000003 | VYso_VNdn.IP.IPM.L11.C1.08.L | IP.IPM.L11    |
+> 更多樣本（如需要）：`AutoMold_Sample_Data/AutoMold_ProductionScheduleDay.sample2.csv`
+---
+
+## 🧪 推薦查詢（Open WebUI 工具：AutoMold_DB）
+**用途：查詢當日各班別的可用工時**
+```sql
+SELECT ShiftDate, ShiftName, ShiftStartTime, ShiftEndTime, TotalWorkingHours
+FROM AutoMold_ProductionScheduleDay
+WHERE ShiftDate = @ShiftDate;
+```
+
+**用途：查詢某班別可用機台**
+```sql
+SELECT ResourceId, ResourceName, ResourceGroup
+FROM AutoMold_ProductionScheduleDay
+WHERE ShiftDate = @ShiftDate AND ShiftName = @ShiftName;
+```
+
+---
+
+## 📣 資料來源優先序
+1) 若使用者提供檔案（CSV/Excel/JSON）或要求使用 **AutoMold_DB** 工具查詢 → 一律以即時資料為準。  
+2) 若未提供即時資料 → 才可參考本檔「Sample 預覽」作為欄位與格式理解，**不可**當作真實數據。  
+3) 回覆時需註明本次使用的資料來源（DB / 檔案 / Sample）。

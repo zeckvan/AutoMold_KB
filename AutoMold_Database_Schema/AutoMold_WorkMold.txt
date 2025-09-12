@@ -1,0 +1,72 @@
+# 📑 AutoMold_WorkMold — 工單需求上模數表
+
+## 定義說明
+在某一張工單排產時，為了滿足該工單在指定班次內的生產需求，系統會計算需要掛在機台上的「上模數量」。
+
+---
+
+## 欄位定義
+| 欄位分類     | 欄位名稱        | 欄位英文名 / 資料欄位        | 型別           | 欄位定義說明                       | 欄位邏輯說明                                                     |
+| ------------ | --------------- | ---------------------------- | -------------- | ---------------------------------- | --------------------------------------------------------------- |
+| **基本識別** | 工廠代號        | FacilityId                   | bigint         | 工廠代號                           |                                                                 |
+|              | 工單生產日      | ProduceDate                  | nvarchar(8)    | 預設工單排產日期                   |                                                                 |
+|              | 生產班別        | ShiftDefinitionShift         | nvarchar(256)  | 預設工單排產班別                   |                                                                 |
+|              | 工單排序        | AufnrSeq                     | int            | 工單順序                           |                                                                 |
+|              | 工單號碼        | Aufnr                        | nvarchar(15)   | 指定排產工單                       |                                                                 |
+| **訂單資訊** | 產出料號        | Plnbez                       | nvarchar(20)   | 工單定義產出料號                   |                                                                 |
+|              | 型體代碼        | ZZSTYLCODE                   | nvarchar(50)   | 工單料號對應之型體代碼             |                                                                 |
+|              | 性別            | ZZGENDER                     | nvarchar(10)   | 工單料號定義性別                   |                                                                 |
+|              | 工單部位        | ZZPARTNO                     | nvarchar(20)   | 工單料號定義部位                   |                                                                 |
+|              | 型體顏色        | ZZATCOLR                     | nvarchar(50)   | 工單料號定義型體顏色               |                                                                 |
+|              | 部位顏色代碼    | ZZCOLORCODE                  | nvarchar(50)   | 工單料號定義部位顏色代碼           |                                                                 |
+|              | 模具 Size       | ProductSize                  | nvarchar(20)   | 使用模具的 Size                    |                                                                 |
+|              | 工單生產 Size   | WOSIZE                       | nvarchar(10)   | 工單實際生產 Size                  |                                                                 |
+|              | 基準開始日      | GSTRP                        | nvarchar(14)   | 工單基準開始日                     |                                                                 |
+|              | 基準結束日      | GLTRP                        | nvarchar(14)   | 工單基準結束日                     |                                                                 |
+|              | 工單生產數量    | GAMNG                        | int            | 工單總生產數量                     |                                                                 |
+|              | 已排模排產數    | MoldedQuantity               | int            | 已完成生產數                       |                                                                 |
+|              | 未排模排產數    | UnmoldedQuantity             | int            | 尚未完成生產數                     |                                                                 |
+| **模具資訊** | 底模代號        | MoldNo                       | nvarchar(100)  | 工單對應模具代號                   |                                                                 |
+|              | 模穴數          | MoldPcsQty                   | int            | 單一模具對應雙數，已扣除損壞模具    |                                                                 |
+|              | 模具庫存數      | MoldInventory                | int            | 當前庫存符合條件的模具數量          |                                                                 |
+|              | 模雙系數        | MoldPairCoefficient          | decimal(10,2)  | 生產計算時的模雙換算系數            |                                                                 |
+|              | 迴轉數          | RoundByDay                   | int            | 模具每日可迴轉次數                 | 時間越短代表效率越高                                            |
+| **生產推論** | 與結束日差距班數| WorkClassDaysDifference      | int            | 工單結束日與目前差距的班數          |                                                                 |
+|              | 生產系數        | ProductionCoefficient        | decimal(10,2)  | 生產能力推算值                     | (未排模排產數 ÷ 模雙系數) ÷ 迴轉數，取至小數第2位              |
+|              | 預計生產班別    | EstimatedProductionClasses   | int            | 預估所需班數                       | 無條件進位，最少 1 班                                           |
+|              | 超過結束日班別數| OverdueWorkClassCount        | int            | 與結束日差距班數 − 預計生產班數    |                                                                 |
+|              | 需求上模塊數    | RequiredUpperMoldQuantity    | int            | 工單所需掛模數                     | 若【超過結束日班別數】 ≥ 0 → 1；若 < 0 → round(預計 ÷ 差距,2) |
+
+---
+
+## 🔍 Sample 預覽（僅格式/分佈參考，非正式來源）
+取自 `AutoMold_WorkMold.sample.csv` 前 5 筆資料：
+
+| FacilityId        | ProduceDate | ShiftDefinitionShift | AufnrSeq | Aufnr        | Plnbez               | ZZSTYLCODE | ZZGENDER | ZZPARTNO | ProductSize | GAMNG | MoldedQuantity | UnmoldedQuantity | MoldNo | MoldPcsQty | MoldInventory | MoldPairCoefficient | RoundByDay | WorkClassDaysDifference | ProductionCoefficient | EstimatedProductionClasses | OverdueWorkClassCount | RequiredUpperMoldQuantity |
+|-------------------|-------------|----------------------|----------|--------------|----------------------|------------|----------|----------|-------------|-------|----------------|------------------|--------|------------|---------------|----------------------|------------|--------------------------|-----------------------|----------------------------|-----------------------|--------------------------|
+| 2210030000000000001 | 20250602    | 6330_VNbc_1stShift   | 1        | 100030850083 | HR0001000033527011  | N          | M        | H0001    | UK_8        | 200   | 50             | 150              | 18336  | 4          | 4             | 1.0                  | 38.33      | -480                     | 5.19                  | 6                          | -486                   | 6                        |
+| 2210030000000000001 | 20250602    | 6330_VNbc_1stShift   | 2        | 100030726405 | HR0001000028450014  | N          | M        | H0001    | UK_10       | 80    | 60             | 20               | 64986  | 4          | 4             | 1.0                  | 34.33      | -483                     | 1.49                  | 2                          | -485                   | 2                        |
+| 2210030000000000001 | 20250602    | 6330_VNbc_1stShift   | 3        | 100030961528 | HR0001000029385011  | N          | W        | H0001    | UK_8-       | 120   | 50             | 70               | 64986  | 2          | 2             | 1.0                  | 34.33      | -471                     | 2.39                  | 3                          | -474                   | 3                        |
+| 2210030000000000001 | 20250602    | 6330_VNbc_1stShift   | 4        | 100031114293 | HR0001000032645002  | N          | W        | H0001    | UK_3-       | 40    | 30             | 10               | 05344  | 1          | 1             | 1.0                  | 36.67      | -456                     | 0.76                  | 1                          | -457                   | 1                        |
+| 2210030000000000001 | 20250602    | 6330_VNbc_1stShift   | 5        | 100031114374 | HR0001000028694006  | N          | M        | H0001    | UK_6        | 30    | 10             | 20               | 64699  | 2          | 2             | 1.0                  | 41.00      | -459                     | 0.07                  | 1                          | -460                   | 1                        |
+> 更多樣本（如需要）：`AutoMold_Sample_Data/AutoMold_WorkMold.sample.csv`
+---
+
+## 🧪 推薦查詢（Open WebUI 工具：AutoMold_DB）
+**用途：查詢尚未完成排模的工單**
+```sql
+SELECT Aufnr, ProductSize, UnmoldedQuantity, RequiredUpperMoldQuantity
+FROM AutoMold_WorkMold
+WHERE FacilityId = @FacilityId
+  AND ProduceDate = @ProduceDate
+  AND ShiftDefinitionShift = @ShiftDefinitionShift
+  AND UnmoldedQuantity > 0
+ORDER BY AufnrSeq ASC;
+```
+
+---
+
+## 📣 資料來源優先序
+1) 若使用者提供檔案（CSV/Excel/JSON）或要求使用 **AutoMold_DB** 工具查詢 → 一律以即時資料為準。  
+2) 若未提供即時資料 → 才可參考本檔「Sample 預覽」作為欄位與格式理解，**不可**當作真實數據。  
+3) 回覆時需註明本次使用的資料來源（DB / 檔案 / Sample）。

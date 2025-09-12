@@ -1,0 +1,127 @@
+# 📑 AutoMold_Thread3 自動排模排產邏輯三（細部規則）
+
+## 1. 資料來源與篩選條件
+- **來源表**：`AutoMold_ArticleMold`  
+- **篩選條件**：  
+  - `SumBodySizeNeed > 0` （型體 Size 欠數大於 0）  
+  - `建議上模塊數 − 實際排班上模數 > 0`  
+- **排序**：依 `SortMold` 由小到大  
+
+---
+
+## 2. 無資料情境
+- 若無符合條件的 `AutoMold_ArticleMold`：  
+  1. 檢查 `AutoMold_ProductionScheduleDay`（生產排班日資訊）是否仍有未處理資料。  
+  2. 若 **有** → 讀取下一筆 `AutoMold_ProductionScheduleDay` → 重新進入 **排模排產五項邏輯**。  
+  3. 若 **沒有** → 結束整體排模排產邏輯。  
+
+---
+
+## 3. 有資料情境（逐筆處理）
+
+### 3.1 找尋【生產資訊歷程檔】
+- **來源表**：`AutoMold_His`
+- **方式**：遍歷 `AutoMold_His`，直到找到符合條件的一筆資料
+- **連結條件**：
+  - `ZZSTYLCODE = AutoMold_ArticleMold.ZZSTYLCODE`
+  - `ProductSize = AutoMold_ArticleMold.ProductSize`
+  - `ZZGENDER = AutoMold_ArticleMold.ZZGENDER`
+  - `MoldNo = AutoMold_ArticleMold.MoldNo`
+  - `COMPONENT = AutoMold_ArticleMold.ZZPARTNO`
+- **處理限制**：  
+  - 已處理筆數 ≤ `AutoMold_ArticleMold.建議上模塊數`  
+---
+
+### 3.2 確認【共模情境】
+- **來源表**：`AutoMold_Temp`
+- **條件**：
+  - `AutoMold_Temp.ProductId = AutoMold_His.ProductId`
+  - `AutoMold_Temp.MoldPcsSeq <> AutoMold_His.MoldPcsSeq`
+  - `AutoMold_Temp.ShiftDate = AutoMold_ProductionScheduleDay.Shift_Date`
+  - `AutoMold_Temp.ShiftName = AutoMold_ProductionScheduleDay.Shift_Name`
+
+- **處理邏輯**：
+  - 若 **沒有找到** → 進入 **3.4 確認未被排模**
+  - 若 **有找到** →
+    1.  新增一筆紀錄至 `AutoMold_Temp`
+
+    2.  更新 `AutoMold_ArticleMold`：
+
+        - 欄位： 
+            -   `SumBodySizeNeed -= AutoMold_Temp.ShiftWorkQty`
+            -   `ActualRequiredUpperMoldQuantity += 1`
+        - 條件：
+            -   `SortMold = AutoMold_ArticleMold.SortMold`   
+
+    3.  更新 `AutoMold_WorkMold`：
+
+        - 欄位：   
+            -   `MoldedQuantity += AutoMold_Temp.ShiftWorkQty`
+            -   `UnmoldedQuantity = GAMNG − MoldedQuantity`
+        - 條件：
+            -   AufnrSeq = 
+            ``` sql
+            SELECT TOP 1 AutoMold_WorkMold.AufnrSeq
+            FROM AutoMold_WorkMold 
+            WHERE AufnrSeq IN AutoMold_ArticleMold.SortOrderList 
+            AND UnmoldedQuantity > 0 
+            ORDER BY AufnrSeq ASC;
+            ```  
+
+  - 若 AutoMold_Temp.WorkQty - AutoMold_Temp.ShiftWorkQty > 0 進入 **3.3 機台餘力分派**  
+
+---
+
+### 3.3 機台餘力分派（相同條件工單）
+-   **來源表**：`AutoMold_WorkMold`
+
+-   **條件**：
+
+    -   `AufnrSeq ∈ AutoMold_ArticleMold.SortOrderList`
+    -   `UnmoldedQuantity > 0`
+
+-   **排序**：依 `AufnrSeq` 由小到大
+
+-   **SQL 參考**：
+
+    ``` sql
+    SELECT *
+    FROM AutoMold_WorkMold 
+    WHERE AufnrSeq IN AutoMold_ArticleMold.SortOrderList 
+      AND UnmoldedQuantity > 0 
+    ORDER BY AufnrSeq ASC;
+    ```
+
+-   **處理邏輯**：
+
+    -   逐筆寫入 `AutoMold_Temp`
+    -   更新 `AutoMold_ArticleMold`（同上規則）
+    -   更新 `AutoMold_WorkMold`（同上規則）
+    -   持續分派直到
+        `AutoMold_Temp.WorkQty - AutoMold_Temp.ShiftWorkQty = 0`（戰力耗盡）
+
+---
+
+### 3.4 確認【未被排模情境】
+- **來源表**：`AutoMold_Temp`
+- **條件**：
+  - `AutoMold_Temp.ResourceId = AutoMold_His.ResourceId`
+  - `AutoMold_Temp.ShiftDate = AutoMold_ProductionScheduleDay.Shift_Date`
+  - `AutoMold_Temp.ShiftName = AutoMold_ProductionScheduleDay.Shift_Name`
+ 
+- **處理邏輯**：
+  - 若有找到且不是共模 → 換下一筆 `ResourceId`
+  - 若沒有找到 →
+    - 新增資料至 `AutoMold_Temp`
+    - 更新 `BAutoMoldArticleMold` 欠數與上模數
+    - 更新 `BAutoMoldWorkMold` 已排與未排數
+    - 若仍有戰力 → 回到 **3.3 機台餘力分派**
+
+---
+
+## 4. 結束條件
+-   當 **型體 Size 欠數** 已完全處理，或
+    **所有機台無戰力可再分派**，則：
+    -   若有下一筆 `AutoMold_ArticleMold` → 返回 **步驟 3**
+    -   若無 → 返回 **步驟 2** 判斷是否換下一筆生產排班日
+    -   若也無 → **結束整體邏輯**
