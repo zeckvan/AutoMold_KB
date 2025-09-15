@@ -1,0 +1,18 @@
+# 案例3：前班無法使用 → 改用歷史排模資訊
+
+## 前置條件
+- AutoMold_ArticleMold.SumBodySizeNeed > 0
+- 前班 AutoMold_Produce 無符合資料
+- AutoMold_His 存在相符的 MoldNo + ZZGENDER + ZZPARTNO + Size
+
+## 測試步驟
+1. 系統讀取工單型體模具欠數。
+2. 前班機台無符合 → 轉由 AutoMold_His 查詢歷史紀錄。
+3. 新增紀錄至 AutoMold_Temp。
+4. 更新 AutoMold_ArticleMold 欠數與上模數。
+5. 更新 AutoMold_WorkMold 已排與未排數。
+
+## 預期結果
+- 工單成功分派至歷史對應的機台。
+- AutoMold_Temp 產生對應排模紀錄。
+- 欠數與上模數正確更新。

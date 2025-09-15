@@ -1,0 +1,18 @@
+# 案例2：Size 不相符但取最接近 Size → 成功分派
+
+## 前置條件
+- AutoMold_ArticleMold.SumBodySizeNeed > 0
+- 前班 AutoMold_Produce 無完全相符 Size，但存在接近的 Size
+- 該 ResourceId 尚有剩餘戰力
+
+## 測試步驟
+1. 系統讀取工單型體模具欠數。
+2. 連結 AutoMold_Produce，比對最接近的 Size。
+3. 新增紀錄至 AutoMold_Temp。
+4. 更新 AutoMold_ArticleMold 欠數與上模數。
+5. 更新 AutoMold_WorkMold 已排與未排數。
+
+## 預期結果
+- 工單成功分派至接近 Size 的前班機台。
+- AutoMold_Temp 產生對應排模紀錄。
+- 欠數與上模數正確更新。

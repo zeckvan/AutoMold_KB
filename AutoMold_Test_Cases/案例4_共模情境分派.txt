@@ -1,0 +1,17 @@
+# 案例4：共模情境 → 分派成功
+
+## 前置條件
+- AutoMold_ArticleMold.SumBodySizeNeed > 0
+- 存在相同 ResourceId、相同 ProductId、不同 MoldPcsSeq 的工單
+- 該 ShiftDate + ShiftName + FacilityId 已有 AutoMold_Temp 紀錄
+
+## 測試步驟
+1. 系統檢查共模情境。
+2. 新增紀錄至 AutoMold_Temp。
+3. 更新 AutoMold_ArticleMold 欠數與上模數。
+4. 更新 AutoMold_WorkMold 已排與未排數。
+
+## 預期結果
+- 工單被正確分派到共模機台。
+- AutoMold_Temp 出現新紀錄。
+- 欠數與上模數正確更新。

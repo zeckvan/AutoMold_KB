@@ -1,0 +1,14 @@
+# 案例5：換模耗時 → 機台被跳過
+
+## 前置條件
+- AutoMold_ArticleMold.SumBodySizeNeed > 0
+- AutoMold_Temp.剩餘戰力 (MoldworkN) − 換模耗時 (MoldChange) ≤ 0
+
+## 測試步驟
+1. 系統檢查 AutoMold_Temp.ResourceId 的剩餘戰力。
+2. 扣除換模耗時後，戰力不足。
+3. 系統跳過該機台，檢查下一筆 ResourceId。
+
+## 預期結果
+- 該機台不會被分派。
+- 系統正確換到下一筆可用機台。
