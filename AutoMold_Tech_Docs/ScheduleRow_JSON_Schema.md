@@ -69,7 +69,7 @@
 ---
 
 ## D) 注意事項
-1. **AppliedRules** → 對應到 AutoMold_Rules_Main.md 的 Thread 條件節點，例如：  
+1. **AppliedRules** → 對應到 AutoMold_Main.md 的 Thread 條件節點，例如：  
    - `Thread1.exact-match`  
    - `Thread2.closest-size`  
    - `Thread3.history-assign`  

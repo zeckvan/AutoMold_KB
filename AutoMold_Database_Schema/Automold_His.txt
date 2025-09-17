@@ -60,7 +60,7 @@
 |               | 模穴數         | MoldPcsQty            | int          | 模穴數（每模幾雙） |
 | **訂單資訊**  | 型體代碼       | ZZSTYLCODE            | nvarchar(50) | 工單型體代碼     |
 |               | 性別           | ZZGENDER              | nvarchar(10) | 工單性別        |
-|               | 部位           | ZZPARTNO              | nvarchar(20) | 工單部位        |
+|               | 部位           | COMPONENT              | nvarchar(20) | 工單部位        |
 |               | 型體顏色       | ZZATCOLR              | nvarchar(50) | 工單型體顏色     |
 |               | 部位顏色代碼   | ZZCOLORCODE           | nvarchar(50) | 工單部位顏色代碼 |
 |               | 模具 Size      | ProductSize           | nvarchar(20) | 模具對應 Size    |
@@ -70,7 +70,7 @@
 ## 🔍 Sample 預覽（僅格式/分佈參考，非正式來源）
 取自 `AutoMold_His.sample.csv` 前 5 筆資料：
 
-| FacilityId        | HisCreateOn        | ResourceId        | MoldNo | ProductId        | MoldPcsSeq | MoldPcsQty | ZZSTYLCODE | ZZGENDER | ZZPARTNO | ZZATCOLR             | ZZCOLORCODE | ProductSize |
+| FacilityId        | HisCreateOn        | ResourceId        | MoldNo | ProductId        | MoldPcsSeq | MoldPcsQty | ZZSTYLCODE | ZZGENDER | COMPONENT | ZZATCOLR             | ZZCOLORCODE | ProductSize |
 |-------------------|-------------------|-------------------|--------|-----------------|------------|------------|------------|----------|----------|----------------------|-------------|-------------|
 | 2210030000000000001 | 2024-12-11 06:09:01 | 2210030000000000307 | 18336  | 2412120000000004864 | 1          | 1          | N          | M        | H0001    | 50%WARM VANILLA S25 | 50%AFDM     | UK_8        |
 | 2210030000000000001 | 2024-12-11 06:09:01 | 2210030000000000323 | 18336  | 2412120000000004968 | 1          | 1          | N          | M        | H0001    | 50%WARM VANILLA S25 | 50%AFDM     | UK_8        |

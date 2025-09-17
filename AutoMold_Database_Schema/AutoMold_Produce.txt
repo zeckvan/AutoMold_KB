@@ -69,7 +69,7 @@
 |               | 模具說明     | MoldDesc              | nvarchar(100) | 模具說明           |
 | **訂單資訊**  | 型體代碼     | ZZSTYLCODE            | nvarchar(50)  | 工單型體代碼       |
 |               | 性別         | ZZGENDER              | nvarchar(10)  | 性別 (M/F)        |
-|               | 部位         | ZZPARTNO              | nvarchar(20)  | 工單部位           |
+|               | 部位         | COMPONENT             | nvarchar(20)  | 工單部位           |
 |               | 型體顏色     | ZZATCOLR              | nvarchar(50)  | 工單型體顏色       |
 |               | 部位顏色代碼 | ZZCOLORCODE           | nvarchar(50)  | 工單部位顏色代碼   |
 |               | 模具 Size    | ProductSize           | nvarchar(20)  | 模具對應 Size      |
@@ -81,7 +81,7 @@
 ## 🔍 Sample 預覽（僅格式/分佈參考，非正式來源）
 取自 `AutoMold_Produce.sample.csv` 前 5 筆資料：
 
-| FacilityId        | ProductType | ResourceId        | ResourceGroup | MoldNo | ProductId        | MoldPcsSeq | MoldPcsQty | MoldDesc | ZZSTYLCODE | ZZGENDER | ZZPARTNO | ZZATCOLR             | ZZCOLORCODE | ProductSize |
+| FacilityId        | ProductType | ResourceId        | ResourceGroup | MoldNo | ProductId        | MoldPcsSeq | MoldPcsQty | MoldDesc | ZZSTYLCODE | ZZGENDER | COMPONENT | ZZATCOLR             | ZZCOLORCODE | ProductSize |
 |-------------------|-------------|-------------------|---------------|--------|-----------------|------------|------------|----------|------------|----------|----------|----------------------|-------------|-------------|
 | 2210030000000000001 | HR          | 2210030000000001040 | RSk_RSM_L01   | 18336  | 2412120000000004796 | 1          | 1          | 3~13.5   | N          | M        | H0001    | 50%GUM5              | 50%27F0     | UK_8        |
 | 2210030000000000001 | HR          | 2210030000000001041 | RSk_RSM_L01   | 18336  | 2412120000000004816 | 1          | 1          | 3~13.5   | N          | M        | H0001    | 50%MAGIC BEIGE F22   | 50%AELB     | UK_10       |
