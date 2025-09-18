@@ -70,3 +70,22 @@ ORDER BY AufnrSeq ASC;
 1) 若使用者提供檔案（CSV/Excel/JSON）或要求使用 **AutoMold_DB** 工具查詢 → 一律以即時資料為準。  
 2) 若未提供即時資料 → 才可參考本檔「Sample 預覽」作為欄位與格式理解，**不可**當作真實數據。  
 3) 回覆時需註明本次使用的資料來源（DB / 檔案 / Sample）。
+
+---
+
+## 📌 檔案驗證與型別轉換規則（共用）
+本表上傳檔案時，必須遵循共用規則文件：
+[AutoMold_FileValidation_Rules.md](./AutoMold_FileValidation_Rules.md)
+
+### 本表必填欄位（摘要）
+以下欄位為執行本表邏輯的最小必要集合（其他欄位依 Schema 定義）：
+- `FacilityId` : bigint
+- `ProduceDate` : nvarchar(8)
+- `ShiftDefinitionShift` : nvarchar(256)
+- `AufnrSeq` : int
+- `ProductSize` : nvarchar(20)
+- `MoldNo` : nvarchar(100)
+
+### AI 回覆要求
+- 先輸出「欄位覆蓋檢查＋型別轉換報告」，再執行後續 Thread 規則與排模。
+- 驗證失敗時僅輸出報告，不可進入排模流程。

@@ -113,6 +113,8 @@
     -   `AutoMold_Produce.ProductId = BMolds.ProductId`
     -   `AutoMold_Produce.MoldPcsSeq <> BMolds.MoldPcsSeq`
 -   **處理邏輯**：與 **3.2** 相同
+-   **額外限制**：  
+    若 `AutoMold_Produce.ProductId` 已存在於 `AutoMold_Temp.ProductId` 且情境 **非共模** → 不可排入，需重新找尋下一筆資料
 -   **若仍找不到 → 進入「3.5 確認該機台未被排模」**
 
 ------------------------------------------------------------------------
@@ -123,12 +125,12 @@
 -   **條件**：同一 `ResourceId, ShiftName, ShiftDate, FacilityId`
 -   **處理邏輯**：
     -   若已有紀錄且非共模 → 換下一筆 `ResourceId`
-    -   若沒有紀錄 →
-        1.  新增一筆紀錄至 `AutoMold_Temp`
-        2.  更新 `AutoMold_ArticleMold`（同上規則）
+    -   若 `前班孔位機台.ProductId` 已存在於 `AutoMold_Temp.ProductId` 且情境 **非共模** → 該資料不可排入，需重新找尋下一筆資料
+    -   若沒有紀錄 →  
+        1.  新增一筆紀錄至 `AutoMold_Temp`  
+        2.  更新 `AutoMold_ArticleMold`（同上規則）  
         3.  更新 `AutoMold_WorkMold`（同上規則）
-    -   若 `AutoMold_Temp.WorkQty - AutoMold_Temp.ShiftWorkQty > 0` →
-        嘗試分派至【相同條件工單】
+    -   若 `AutoMold_Temp.WorkQty - AutoMold_Temp.ShiftWorkQty > 0` → 嘗試分派至【相同條件工單】
 
 ------------------------------------------------------------------------
 

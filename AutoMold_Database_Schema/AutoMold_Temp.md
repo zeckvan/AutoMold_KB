@@ -96,3 +96,62 @@ WHERE ShiftDate = @ShiftDate AND ShiftName = @ShiftName;
 1) 若使用者提供檔案（CSV/Excel/JSON）或要求使用 **AutoMold_DB** 工具查詢 → 一律以即時資料為準。  
 2) 若未提供即時資料 → 才可參考本檔「Sample 預覽」作為欄位與格式理解，**不可**當作真實數據。  
 3) 回覆時需註明本次使用的資料來源（DB / 檔案 / Sample）。
+
+---
+
+## 約束與索引設計（Thread-aware；最小必要規範）
+
+> 目的：避免非共模重複分派；Thread4 才允許「共號」。
+
+### 1) Thread 維度欄位
+- 新增欄位：`ThreadNo TINYINT`（1/2/3/4；與 `ThreadName` 並存，用於檢核與索引）
+- 寫入規範：任何寫入 `AutoMold_Temp` 的流程，**必須同時寫入 `ThreadNo`**
+
+### 2) 唯一性規則
+- **Thread1/2/3（非共模唯一）**  
+  同一 `FacilityId, ShiftDate, ShiftName, ResourceId, ProductId, MoldPcsSeq` 不得重複
+
+- **Thread4（共號允許但限不同工單序）**  
+  允許相同 `ProductId + MoldPcsSeq` 重複，但 **必須使用不同 `AufnrSeq`**，且 `UnmoldedQuantity` 足夠
+
+### 3) 建議索引（邏輯檢核的「AI 等效唯一鍵」）
+```sql
+-- A. Thread1/2/3 非共模唯一（過濾式唯一索引）
+CREATE UNIQUE INDEX UQ_AutoMoldTemp_NonCommon_T123
+ON AutoMold_Temp(FacilityId, ShiftDate, ShiftName, ResourceId, ProductId, MoldPcsSeq)
+WHERE ThreadNo IN (1,2,3);
+
+-- B. Thread4 共號防重（同工單序不可重覆）
+CREATE UNIQUE INDEX UQ_AutoMoldTemp_T4_GongHao_ByOrder
+ON AutoMold_Temp(FacilityId, ShiftDate, ShiftName, ResourceId, ProductId, MoldPcsSeq, AufnrSeq)
+WHERE ThreadNo = 4;
+
+-- C. 檢核/查詢輔助索引
+CREATE INDEX IX_AutoMoldTemp_SSRP_Thread
+ON AutoMold_Temp(FacilityId, ShiftDate, ShiftName, ResourceId, ProductId, ThreadNo)
+INCLUDE (MoldPcsSeq, ShiftWorkQty, AufnrSeq);
+```
+
+### 4) 寫入前 Pre-Insert 檢核（AI 必做）
+- **T1/2/3**：若上列六鍵已存在（代表非共模重複）→ 禁止寫入，改選下一筆
+- **T4**：若同 `AufnrSeq` 已存在 → 禁止寫入；並檢查 `UnmoldedQuantity ≥ 本次分派數`
+
+---
+
+## 📌 檔案驗證與型別轉換規則（共用）
+本表上傳檔案時，必須遵循共用規則文件：
+[AutoMold_FileValidation_Rules.md](./AutoMold_FileValidation_Rules.md)
+
+### 本表必填欄位（摘要）
+以下欄位為執行本表邏輯的最小必要集合（其他欄位依 Schema 定義）：
+- `FacilityId` : bigint
+- `ShiftDate` : nvarchar(8)
+- `ShiftName` : nvarchar(256)
+- `ResourceId` : bigint
+- `AufnrSeq` : int
+- `ProductId` : bigint
+- `MoldPcsSeq` : nvarchar(20)
+
+### AI 回覆要求
+- 先輸出「欄位覆蓋檢查＋型別轉換報告」，再執行後續 Thread 規則與排模。
+- 驗證失敗時僅輸出報告，不可進入排模流程。

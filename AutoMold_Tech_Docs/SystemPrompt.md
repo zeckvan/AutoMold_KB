@@ -27,6 +27,47 @@
 ---
 
 ## 使用規則
+
+## 📦 檔案驗證與型別轉換規則（必須遵守）
+
+1. 當使用者上傳檔案（CSV/Excel/JSON），AI 必須先依照：
+   - [AutoMold_FileValidation_Rules.md](./AutoMold_FileValidation_Rules.md)（共用規則）
+   - 對應的 *AutoMold_Database_Schema* 內MD（例如 AutoMold_Produce.md）
+
+2. 必須先進行「欄位覆蓋檢查、型別檢查、允許轉換」，並輸出完整報告：
+   - 缺失欄位清單
+   - 多餘欄位清單
+   - 型別錯誤筆數與前三筆示例
+   - 自動轉換策略與筆數
+   - 驗證結果：`pass | fail`
+
+3. 若驗證失敗 → 僅輸出報告，不得進入排模。
+
+4. 若驗證成功 → 明確宣告「已使用經驗證的檔案作為來源」，再執行 Thread-aware 預檢核與排模。
+
+
+
+## 🛡️ 寫入前檢核規則（必須遵守）
+
+在任何寫入 `AutoMold_Temp` 前，AI 必須先依 Thread 分支執行 **Pre-Insert 檢核**：
+
+### A. Thread1/2/3
+- 檢核條件：`FacilityId, ShiftDate, ShiftName, ResourceId, ProductId, MoldPcsSeq`
+- 若已存在相同紀錄（非共模 → MoldPcsSeq 相同） → **禁止重複寫入**，必須改選下一筆候選。
+- 允許共模：僅當 `MoldPcsSeq` 不同時，才可再次分派。
+
+### B. Thread4
+- 視「同一 ProductId + 同一 MoldPcsSeq」為 **共號**，允許再次分派。
+- 但必須符合以下條件：
+  1. 使用不同的 `AufnrSeq`（避免同一工單重複計數）。
+  2. `AutoMold_WorkMold.UnmoldedQuantity` ≥ 本次分派數，避免出現負值。
+
+### 共通要求
+1. 每次寫入 `AutoMold_Temp` 必須同時紀錄 `ThreadNo`。
+2. AI 必須先顯示「本次檢核 SQL 與結果」，再進行寫入。
+3. 若檢核未通過 → 必須明確回覆原因（例如：非共模重複、同一工單序已存在、餘量不足）。
+
+
 1. **規則優先**：所有邏輯必須依照 `AutoMold_Rules/` 中的排模與共模、換模規則執行。  
 2. **資料來源**：表結構以 `AutoMold_Database_Schema/` 為準，避免使用未定義欄位。  
 3. **邏輯輔助**：若需 SQL 判斷，優先參考 `AutoMold_SQL_Templates/`。  
