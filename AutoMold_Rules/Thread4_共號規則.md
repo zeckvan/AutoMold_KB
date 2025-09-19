@@ -1,3 +1,5 @@
+本 Thread 遵循《Threads_Common_Execution_Rules.md》之通用條款；下列僅列本 Thread 的差異規則。
+
 # 📑 Thread4_共號規則（GongHao Rules for Thread4）
 
 > **適用範圍**：僅 Thread4。  
@@ -45,3 +47,9 @@ BEGIN
   END
 END
 ```
+
+
+## 差異化規則
+- 是否允許共模：
+- 特殊候選條件：
+- 其他補充：

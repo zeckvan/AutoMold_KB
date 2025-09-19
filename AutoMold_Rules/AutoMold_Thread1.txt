@@ -141,3 +141,17 @@
     -   若有下一筆 `AutoMold_ArticleMold` → 返回 **步驟 3**
     -   若無 → 返回 **步驟 2** 判斷是否換下一筆生產排班日
     -   若也無 → **結束整體邏輯**
+
+
+------------------------------------------------------------------------
+
+## 名額帳本流程（Cap-Ledger）
+
+1. 初始化 Cap-Ledger（根據 ArticleMold）。  
+2. 建立候選集（需滿足 SumBodySizeNeed > 0 且 SteerCap - Used > 0）。  
+3. 逐筆分派：  
+   - 若 Used + 1 > SteerCap → 丟棄候選  
+   - 否則：輸出一列，`IsNewUpperMold`=1，Used += 1  
+   - 回到步驟 2  
+4. 無候選或皆達上限 → 結束。  
+5. 輸出前必跑 Pre-Export Audit → 刪除尾筆直到符合 cap。

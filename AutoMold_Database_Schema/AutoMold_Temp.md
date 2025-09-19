@@ -1,3 +1,5 @@
+本 Thread 遵循《Threads_Common_Execution_Rules.md》之通用條款；下列僅列本 Thread 的差異規則。
+
 # 📑 AutoMold_Temp — 排模排產結果暫存表
 
 ## 定義說明
@@ -155,3 +157,18 @@ INCLUDE (MoldPcsSeq, ShiftWorkQty, AufnrSeq);
 ### AI 回覆要求
 - 先輸出「欄位覆蓋檢查＋型別轉換報告」，再執行後續 Thread 規則與排模。
 - 驗證失敗時僅輸出報告，不可進入排模流程。
+
+
+## 欄位補充
+- `IsNewUpperMold BIT`  
+  - 是否為本班新掛模具。  
+  - 1=新掛；0=續產或延續。
+
+## 文件化說明
+- 本欄位用於稽核 `SteerRequiredUpperMoldQuantity`。  
+- 所有排模輸出 CSV 必須包含該欄位。
+
+## 差異化規則
+- 是否允許共模：
+- 特殊候選條件：
+- 其他補充：

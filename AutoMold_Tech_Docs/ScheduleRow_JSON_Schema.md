@@ -1,3 +1,5 @@
+本 Thread 遵循《Threads_Common_Execution_Rules.md》之通用條款；下列僅列本 Thread 的差異規則。
+
 
 # 🧾 輸出契約：ScheduleRow JSON Schema
 
@@ -81,3 +83,9 @@
 3. **Confidence** → AI 判斷的信心度（0~1），建議 ≥0.8 才能落地。  
 
 4. 其餘如 `MaintainHour`, `MoldChange`, `MoldworkY/N` 為 **衍生值**，不在 Schema 中，由 SQL / 政策表計算。
+
+
+## 差異化規則
+- 是否允許共模：
+- 特殊候選條件：
+- 其他補充：

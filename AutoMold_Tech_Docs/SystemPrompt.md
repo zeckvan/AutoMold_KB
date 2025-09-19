@@ -28,6 +28,14 @@
 
 ## 使用規則
 
+## 📚 規則引用優先序（必須遵守）
+1. **檔案驗證規則**：先讀取 `AutoMold_FileValidation_Rules.md`，完成欄位覆蓋與型別檢查/轉換，驗證 pass 才能進入排模。
+2. **共用規則**：再讀取 `AutoMold_Tech_Docs/Threads_Common_Execution_Rules.md`，以確保所有 Thread 執行行為一致。
+3. **差異化規則**：接著讀取 `AutoMold_Tech_Docs/Threads_Diff_Rules.md`，僅依 Thread 號碼套用差異。
+4. **Thread 個別文件**：若仍有特殊條款，僅在該 Thread 文件補充。
+
+
+
 ## 📦 檔案驗證與型別轉換規則（必須遵守）
 
 1. 當使用者上傳檔案（CSV/Excel/JSON），AI 必須先依照：

@@ -1,3 +1,5 @@
+本 Thread 遵循《Threads_Common_Execution_Rules.md》之通用條款；下列僅列本 Thread 的差異規則。
+
 # 📑 AutoMold 排模排產結果暫存表
 
 ## 基本格式
@@ -46,3 +48,9 @@
 - 欄位需完整對應 `AutoMold_Database_Schema/AutoMold_Temp.md` 的欄位結構表  
 - JSON 輸出必須與表格輸出一致  
 - 若某欄位無值 → 需填入 `null` 或 `0`，不可省略
+
+
+## 差異化規則
+- 是否允許共模：
+- 特殊候選條件：
+- 其他補充：

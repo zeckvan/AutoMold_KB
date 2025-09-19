@@ -1,3 +1,5 @@
+本 Thread 遵循《Threads_Common_Execution_Rules.md》之通用條款；下列僅列本 Thread 的差異規則。
+
 # 製鞋廠模具優先排模排產邏輯說明
  
 ## 1.定義說明
@@ -16,7 +18,7 @@
   
 ---
  
-## 2. 排模邏輯執行緒（Threads）
+## 2.1 排模邏輯執行緒（Threads）
  
 | Thread 編號 | 排模邏輯條件說明 | 目標孔位來源        |
 |-------------|------------------|----------------------|
@@ -28,6 +30,39 @@
  
 > 💡 每個 Thread 的執行結果皆會依條件進行模具排產，並即時記錄於暫存表，確保完整可追溯性與後續查核。
  
+## 2.2 限制條款（Capacity Cap）
+**目標**：確保每個 (FacilityId, ShiftDate, ShiftName, ProductId, ProductSize[, ArticleMoldId]) 的「本班新掛模數」不超過 `AutoMold_ArticleMold.SteerRequiredUpperMoldQuantity`。
+
+### 2.2.1 候選集必要條件
+- `SumBodySizeNeed > 0`
+- `(SteerRequiredUpperMoldQuantity - ActualRequiredUpperMoldQuantity) > 0`
+
+### 2.2.2 Cap-Ledger（名額帳本）
+AI 必須維護一份名額帳本：
+```
+CapKey = (FacilityId, ShiftDate, ShiftName, ProductId, ProductSize[, ArticleMoldId])
+Cap-Ledger[CapKey] = {
+  SteerCap: SteerRequiredUpperMoldQuantity,
+  Used: ActualRequiredUpperMoldQuantity + NewAssignedInThisRun
+}
+```
+
+### 2.2.3 逐筆分派
+每完成一筆分派：
+1. `Used += 1`
+2. 重新計算候選集
+3. 再挑下一筆
+
+### 2.2.4 達上限處置
+若 `Used >= SteerCap`，立即停止該 CapKey 的新掛分派。
+
+### 2.2.5 輸出欄位要求
+- `IsNewUpperMold`：1=新掛；0=續產。
+
+### 2.2.6 自我稽核
+輸出前：分組檢查 `SUM(IsNewUpperMold) ≤ SteerRequiredUpperMoldQuantity`。
+如違反：刪除尾筆直到符合，並產生 `ValidationReport`。
+
 ---
 
 ## 3. 測試案例對應表
@@ -100,3 +135,63 @@
 - 系統提示：`AutoMold_Tech_Docs/SystemPrompt.md`  
 - 輸出契約：`AutoMold_Tech_Docs/ScheduleRow_JSON_Schema.md`  
 - 測試與驗證：`5_Test_Cases/` + `6_Test_Results/`
+
+## 差異化規則
+- 是否允許共模：
+- 特殊候選條件：
+- 其他補充：
+
+
+### 2.3 換模耗時與可用時段檢核
+- 若新產品使用到新的 `ResourceId`，需計入換模耗時（例：0.5 小時）。  
+- 檢核機台可用時段 ≥ (換模時間 + 生產時間)，不足則跳過候選機台。  
+
+---
+
+## 3.5 機台未被排模（補強條款）
+
+**3.5.1 非共模唯一鍵**  
+- 唯一鍵：`(FacilityId, ShiftDate, ShiftName, ProductId)`  
+- 規則：同一班別 **ProductId 僅能分派一次**（非共模情境）。  
+
+**3.5.2 不可跨機台切割**  
+- 已分派的 `ProductId`，剩餘數量不得再分派到其他機台，若不足則延後處理。  
+
+**3.5.3 共模開關**  
+- Thread1/2/3：`AllowCoMold = false`（禁止同班多筆）。  
+- Thread4：`AllowCoMold = true`，可允許多筆，但須符合共模條件（不同 MoldPcsSeq）。  
+
+**3.5.4 共模上限**  
+- 新增 `MaxCoMoldSlotsPerProductPerShift`，避免共模佔用過多班次戰力。  
+
+**3.5.5 前班延續優先**  
+- 若前班同一 ResourceId 已在加工同一 ProductId，則優先續用本班該機台。  
+
+**3.5.6 跳過與重算**  
+- 每跳過一台機台，必須 **立即重算候選集**，禁止一次性固定前 N 台。  
+
+**3.5.7 失敗處置**  
+- 若整班候選皆因去重被排除 → 記錄 `DecisionPath` = `RULE_3_5_DUP_PRODUCT`，並將剩餘量遞延。  
+
+---
+
+## 6. 系統護欄（System Safeguards）
+
+- **唯一索引**：  
+  ```sql
+  CREATE UNIQUE INDEX UX_Temp_NonCoMold
+  ON AutoMold_Temp(FacilityId, ShiftDate, ShiftName, ProductId)
+  WHERE AllowCoMold = 0;
+  ```
+- **交易一致性**：`AutoMold_Temp`、`AutoMold_ArticleMold`、`AutoMold_WorkMold` → 同一交易處理。  
+- **序列化流程**：逐筆寫入，立即重算，避免競爭條件。  
+
+---
+
+## 7. 紀錄與追蹤
+
+- `AppliedRules`：必須包含  
+  - `RULE_3_5_DISTINCT_PRODUCT_NON_COMOLD`  
+  - `RULE_2_2_CAP_STEER_UPPER_MOLD`  
+  - `RULE_2_3_SETUP_TIME_CHECK`  
+- `DecisionPath`：逐筆紀錄跳過原因（如 DUP_PRODUCT、CAP_EXCEEDED、SETUP_FAIL）。  
